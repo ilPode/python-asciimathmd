@@ -34,6 +34,5 @@ Help
 If you have any ideas for a better syntax let me know.
 
 [ASCIIMathML]: http://www1.chapman.edu/~jipsen/mathml/asciimath.html
-[etree]: http://docs.python.org/library/xml.etree.elementtree.html
-[python-markdown]: http://www.freewisdom.org/projects/python-markdown/
+[python-markdown]:https://pypi.python.org/pypi/Markdown
 [python-asciimathml]: https://github.com/favalex/python-asciimathml
