@@ -72,7 +72,7 @@ class ASCIIMathMLProcessor(markdown.blockprocessors.BlockProcessor):
                 eqs.append((msplit.pop(0), msplit.pop(0).split(NEWLINE_SEP)))
             # If there's only one unlabeled equation we don't need a <mtable> element
             if len(eqs) > 1 or eqs[0][0] != '' :
-                eqsnode = El('mtable')
+                eqsnode = El('mtable', columalign='left')
                 for eq in eqs :
                     eqnode = parse_multiline(*eq[1])
                     if eq[0] != '' :
@@ -80,7 +80,7 @@ class ASCIIMathMLProcessor(markdown.blockprocessors.BlockProcessor):
                         if eqnum != -1 :
                             eqsnode.append(El('mtr', 
                                                 El('mtd', eqnode ), 
-                                                El('mtd', El('mtext', text = '( %d )' % (eqnum))) 
+                                                El('mtd', El('mtext', text = '(%d)' % (eqnum)), columalign='right') 
                                             , id = self.ext.makeEqrefId(eq[0])) )
                         else :
                             eqsnode.append(El('mtr', eqnode )) 
@@ -122,9 +122,10 @@ def makeExtension(configs=None):
     return ASCIIMathMLExtension(configs=configs)
 
 # Parser #
+
 def parse_multiline(*lines) :
     if len(lines) > 1: 
-        node = El('mtable')
+        node = El('mtable', columalign='left')
         for line in lines :
             line, linenodes = parse_exprs(line)
             remove_invisible(linenodes)
@@ -137,7 +138,7 @@ def parse_multiline(*lines) :
         linenodes = map(remove_private, linenodes)
         return El('mrow', *linenodes)
     else:
-        return None #sicuri che va bene?
+        return None
 
 def El(tag, text=None, *children, **attrib):
     element = Element(tag, **attrib)
