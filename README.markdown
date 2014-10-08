@@ -38,7 +38,7 @@ You can choose the behaviour using this 2 config parameters:
     * -1 : No header's number (global equation's number)
     * 0 : Number only on h1
     * 1 : Number on h1 and h2
-    ...
+    * ...
 - header_num: Wether or not to show the number near the header (Default is True)
 
 Help
