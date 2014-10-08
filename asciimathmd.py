@@ -23,29 +23,30 @@ tostring = markdown.util.etree.tostring
 #MATH_DEL = r'(?<![{(\-\[]):(?![}\)\.])' # match :math: avoiding symbols ':.' '{:' '(:' ':)' ':}' '-:' '[:'
 #BLOCK_RE = r'(?:^|\n)\[:(\w*)\]' # [:ref] math
 #EQREF_RE = r'\[:(\w+)\]' # blah blah [:ref] blah
-#NEWLINE_RE = r'(?:\n:|:\n)'
 
 MATH_DEL = r'((?<![~|\[])~(?![~=|]))' # match ~math~ avoiding '~~' '~=' '~|' '|~' '[~'
 BLOCK_RE = r'(?:^|\n)\[~(\w*)\]' # [~ref] math
 EQREF_RE = r'\[~(\w+)\]' # blah blah [~ref] blah
-NEWLINE_RE = '(?:\n~|~\n)'
 
-INLINEMATH_RE = MATH_DEL + r'(.*?)' + MATH_DEL
+LINEBREAK_RE = r'  \n'
+NOBREAK_RE = r'(?!.*' + LINEBREAK_RE + '.*)'
+INLINEMATH_RE = MATH_DEL + NOBREAK_RE + r'(.*?)' + MATH_DEL
 
 class ASCIIMathMLExtension(markdown.extensions.Extension):
     def __init__(self, configs, **kwargs):
         self.config = {'level_num'  : [1, "Maximum header level to be numbered, from 0 to 6, -1 means no numbering."],
-                       'header_num' : [True, "Write number next to header."] }
+                       'header_num' : [True, "Show number next to header."] }
         super(ASCIIMathMLExtension, self).__init__(**kwargs)
         self.reset()
 
     def extendMarkdown(self, md, md_globals):
         self.md = md
         
+        md.ESCAPED_CHARS.append('~')
         md.parser.blockprocessors.add('block_asciimath', ASCIIMathMLProcessor(md.parser, self), '>code')
         md.treeprocessors.add("eq_number", EqNumberTreeProcessor(self), '<inline')
         md.inlinePatterns.add("eq_reference", EqrefPattern(EQREF_RE, self), '<reference')
-        md.inlinePatterns.add('inline_asciimath', ASCIIMathMLPattern(INLINEMATH_RE), '_begin')
+        md.inlinePatterns.add('inline_asciimath', ASCIIMathMLPattern(INLINEMATH_RE), '>escape')
 
     def addEqref(self, ref, num):
         if not ref in self.eqrefDict and ref != '':
@@ -80,7 +81,7 @@ class ASCIIMathMLProcessor(markdown.blockprocessors.BlockProcessor):
 
             eqs = []
             while msplit != [] :
-                eqs.append((msplit.pop(0), re.split(NEWLINE_RE, msplit.pop(0))))
+                eqs.append((msplit.pop(0), re.split(LINEBREAK_RE, msplit.pop(0))))
             # If there's only one unlabeled equation we don't need a <mtable> element
             if len(eqs) > 1 or eqs[0][0] != '':
                 eqsnode = El('mtable', columalign='left')
@@ -123,7 +124,7 @@ class EqNumberTreeProcessor(markdown.treeprocessors.Treeprocessor):
 
     def __init__(self, extension):
         self.ext = extension
-        self.maxLevel = min(self.ext.getConfig('level_num'), 3) # Too much level numbering is ugly :P 3 is maximum
+        self.maxLevel = min(self.ext.getConfig('level_num'), 6)
         # Initialize counters
         self.counter = [0 for i in range(self.maxLevel+1)] 
         self.eqCount = 0
@@ -179,7 +180,7 @@ class EqNumberTreeProcessor(markdown.treeprocessors.Treeprocessor):
                         self.stepCounter()
                         numStr = self.makeNumber()
                         self.ext.eqrefDict[mref.group(1)] = numStr
-                        # Find and update the number near the equation
+                        # Find and update the number next to the equation
                         for t in e.getiterator('mtext'):
                             if 'class' in t.attrib and t.attrib['class'] == 'eqnum':
                                 t.text = '(' + numStr + ')'
