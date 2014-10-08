@@ -19,26 +19,27 @@ To add inline math to your text enclose it in `~` :
     blah blah ~ e^(ix) = cos(x) + i sin(x) ~ blah blah
 
 To start a math block put a `[~ref]` at the beginning of the line, and end it with a blank line.
-In a math block a `~` at the beginning of the line will be interpreted as a line break.
+To insert a line break in a math block just put two spaces before a newline, like in standard markdown syntax.
 You can reference an equation in the text with `[~ref]`:
 
     blah blah
-    [~1] e^(ix) = cos(x) + i sin(x)
-    ~  cos(x) = (e^(ix) + e^(-ix))/2
-        sin(x) = (e^(ix) - e^(-ix))/(2i)
+    [~1] e^(ix) = cos(x) + i sin(x)  
+         cos(x) = (e^(ix) + e^(-ix))/2
+         sin(x) = (e^(ix) - e^(-ix))/(2i)
 
     I love equation [~1].
 
 ### Configuration ###
 
-The equation reference number can be global (like `(1)`) or preceded by header's number (like in `(1.2.3)`).
-You can choose the behaviour using this 2 config parameters:
+The equation reference number can be global or preceded by header's number (like in `(1.2.3)`).
+You can set the preferred behaviour using this config parameters:
 
 - level_num : Maximum level of header to keep track of (Default is 1).
-    * -1 : No header's number (global equation's number)
-    * 0 : Number only on h1
-    * 1 : Number on h1 and h2
+    * level_num = -1 : No header's number (global equation's number).
+    * level_num = 0 : Numbers only on h1.
+    * level_num = 1 : Numbers on h1 and h2.
     * ...
+    * level_num = 6 : Numbers on all headers from h1 to h6 (please don't do this).
 - header_num: Wether or not to show the number near the header (Default is True)
 
 Help
