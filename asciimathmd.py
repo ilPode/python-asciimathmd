@@ -113,7 +113,7 @@ class EqrefPattern(markdown.inlinepatterns.Pattern):
             a = Element("a")
             a.set('href', '#' + self.ext.makeEqrefId(ref))
             a.set('class', 'eqref')
-            a.text = self.ext.eqrefDict[ref]
+            a.text = '(' + self.ext.eqrefDict[ref] + ')'
             return a
         else:
             return None
