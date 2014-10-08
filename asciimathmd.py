@@ -19,34 +19,45 @@ Element = markdown.util.etree.Element
 AtomicString = markdown.util.AtomicString
 tostring = markdown.util.etree.tostring
 
-INLINEMATH_PATTERN = r'::([^:]*)::' # match :: math ::
-BLOCK_PATTERN = r'(?:^|\n)\[:(\w*)\]'
-EQREF_PATTERN = r'\[:(\w+)\]' # blah blah [:asd] blah
-NEWLINE_SEP = '::'
+# Alternate syntax
+#MATH_DEL = r'(?<![{(\-\[]):(?![}\)\.])' # match :math: avoiding symbols ':.' '{:' '(:' ':)' ':}' '-:' '[:'
+#BLOCK_RE = r'(?:^|\n)\[:(\w*)\]' # [:ref] math
+#EQREF_RE = r'\[:(\w+)\]' # blah blah [:ref] blah
+#NEWLINE_RE = r'(?:\n:|:\n)'
+
+MATH_DEL = r'((?<![~|\[])~(?![~=|]))' # match ~math~ avoiding '~~' '~=' '~|' '|~' '[~'
+BLOCK_RE = r'(?:^|\n)\[~(\w*)\]' # [~ref] math
+EQREF_RE = r'\[~(\w+)\]' # blah blah [~ref] blah
+NEWLINE_RE = '(?:\n~|~\n)'
+
+INLINEMATH_RE = MATH_DEL + r'(.*?)' + MATH_DEL
 
 class ASCIIMathMLExtension(markdown.extensions.Extension):
-    def __init__(self, configs):
+    def __init__(self, configs, **kwargs):
+        self.config = {'level_num'  : [1, "Maximum header level to be numbered, from 0 to 6, -1 means no numbering."],
+                       'header_num' : [True, "Write number next to header."] }
+        super(ASCIIMathMLExtension, self).__init__(**kwargs)
         self.reset()
 
     def extendMarkdown(self, md, md_globals):
         self.md = md
-        #INLINEMATH_RE = re.compile(INLINEMATH_PATTERN, re.M)
         
         md.parser.blockprocessors.add('block_asciimath', ASCIIMathMLProcessor(md.parser, self), '>code')
-        md.inlinePatterns.add("eqref", EqrefPattern(EQREF_PATTERN, self), '<reference')
-        md.inlinePatterns.add('inline_asciimath', ASCIIMathMLPattern(INLINEMATH_PATTERN), '_begin')
+        md.treeprocessors.add("eq_number", EqNumberTreeProcessor(self), '<inline')
+        md.inlinePatterns.add("eq_reference", EqrefPattern(EQREF_RE, self), '<reference')
+        md.inlinePatterns.add('inline_asciimath', ASCIIMathMLPattern(INLINEMATH_RE), '_begin')
 
-    def addEqref(self, ref):
-        if not ref in self.eqrefs :
-            self.eqrefs.append(ref)
-            return len(self.eqrefs)
-        return -1
+    def addEqref(self, ref, num):
+        if not ref in self.eqrefDict and ref != '':
+            self.eqrefDict[ref] = num 
+            return True
+        return False
 
     def makeEqrefId(self, ref):
         return 'eq:'+ref
 
     def reset(self):
-        self.eqrefs = []
+        self.eqrefDict = {}
         
 class ASCIIMathMLProcessor(markdown.blockprocessors.BlockProcessor):
     """ Process Block ASCIIMathML. """
@@ -54,7 +65,7 @@ class ASCIIMathMLProcessor(markdown.blockprocessors.BlockProcessor):
     def __init__(self, parser, extension) :
         super(ASCIIMathMLProcessor, self).__init__(parser)
         self.ext = extension
-        self.blockRe = re.compile(BLOCK_PATTERN)
+        self.blockRe = re.compile(BLOCK_RE)
 
     def test(self, parent, block):
         return bool(self.blockRe.search(block))
@@ -69,24 +80,20 @@ class ASCIIMathMLProcessor(markdown.blockprocessors.BlockProcessor):
 
             eqs = []
             while msplit != [] :
-                eqs.append((msplit.pop(0), msplit.pop(0).split(NEWLINE_SEP)))
+                eqs.append((msplit.pop(0), re.split(NEWLINE_RE, msplit.pop(0))))
             # If there's only one unlabeled equation we don't need a <mtable> element
-            if len(eqs) > 1 or eqs[0][0] != '' :
+            if len(eqs) > 1 or eqs[0][0] != '':
                 eqsnode = El('mtable', columalign='left')
-                for eq in eqs :
+                for eq in eqs:
                     eqnode = parse_multiline(*eq[1])
-                    if eq[0] != '' :
-                        eqnum = self.ext.addEqref(eq[0])
-                        if eqnum != -1 :
-                            eqsnode.append(El('mtr', 
-                                                El('mtd', eqnode ), 
-                                                El('mtd', El('mtext', text = '(%d)' % (eqnum)), columalign='right') 
-                                            , id = self.ext.makeEqrefId(eq[0])) )
-                        else :
-                            eqsnode.append(El('mtr', eqnode )) 
-                    else :
+                    if self.ext.addEqref(eq[0],''):
+                        eqsnode.append( El('mtr', 
+                                        El('mtd', eqnode ), 
+                                        El('mtd', El('mtext', text = "(%d)" % (len(self.ext.eqrefDict)), attrib={'class':'eqnum'}), columalign='right') 
+                                        , attrib={'id':self.ext.makeEqrefId(eq[0]), 'class':'equation'}) )
+                    else:
                         eqsnode.append(El('mtr', eqnode))
-            else : 
+            else: 
                 eqsnode = parse_multiline(*eqs[0][1])
 
         mathml = El('math', El('mstyle', eqsnode))
@@ -102,19 +109,86 @@ class EqrefPattern(markdown.inlinepatterns.Pattern):
 
     def handleMatch(self, m):
         ref = m.group(2)
-        if ref in self.ext.eqrefs:
+        if ref in self.ext.eqrefDict:
             a = Element("a")
             a.set('href', '#' + self.ext.makeEqrefId(ref))
-            a.set('class', 'equations-ref')
-            a.text = markdown.util.text_type(self.ext.eqrefs.index(ref) + 1)
+            a.set('class', 'eqref')
+            a.text = self.ext.eqrefDict[ref]
             return a
         else:
             return None
 
+class EqNumberTreeProcessor(markdown.treeprocessors.Treeprocessor):
+    """ Climbs the element tree to assign numbers to headers and equations """
+
+    def __init__(self, extension):
+        self.ext = extension
+        self.maxLevel = min(self.ext.getConfig('level_num'), 3) # Too much level numbering is ugly :P 3 is maximum
+        # Initialize counters
+        self.counter = [0 for i in range(self.maxLevel+1)] 
+        self.eqCount = 0
+
+    def makeNumber(self, level=None):
+        """ returns number for header or equation
+            level = None -> equations numering
+            level = 0 -> h1
+            level = 1 -> h2
+            level = 2 -> h3
+            ...
+        """
+        c = self.counter.copy()
+        while c.count(0) != 0:
+            c.remove(0)
+        i = (self.maxLevel + 1) if (level is None) else (min(self.maxLevel, level) + 1)
+        c = map(str, c[:i])
+        num = '.'.join(c)
+        if level is None:
+            num += '.' + str(self.eqCount)          
+        return num
+
+    def stepCounter(self, level=None, step=1):
+        """ Update counters """
+        if level is None:
+            self.eqCount += step
+        else:
+            l = min(self.maxLevel, level)
+            self.counter[l] += step
+            for i in range(l+1, self.maxLevel):
+                self.counter[i] = 0
+            self.eqCount = 0
+
+    def run(self, root):
+        # If maxLevel is < 0 the numbering is disabled
+        if  self.maxLevel >= 0 :
+            headerRe = re.compile(r'[Hh]([1-'+ str(self.maxLevel+1) + '])') 
+            refRe = re.compile(r'^eq:(.*)$')
+            # Tree climbing
+            for e in root.getiterator() :
+                mh = headerRe.match(e.tag)
+                # Is an header
+                if mh:
+                    mLevel = int(mh.group(1)) - 1
+                    self.stepCounter(level=mLevel) 
+                    e.text = self.makeNumber(mLevel) + ' ' + e.text
+                
+                # Is an equation
+                if e.tag == 'mtr' and 'class' in e.attrib and e.attrib['class'] == 'equation':
+                    mref = refRe.match(e.attrib['id'])
+                    # Ignore it if it's not in the reference dictionary
+                    if mref and mref.group(1) in self.ext.eqrefDict:
+                        self.stepCounter()
+                        numStr = self.makeNumber()
+                        self.ext.eqrefDict[mref.group(1)] = numStr
+                        # Find and update the number near the equation
+                        for t in e.getiterator('mtext'):
+                            if 'class' in t.attrib and t.attrib['class'] == 'eqnum':
+                                t.text = '(' + numStr + ')'
+                                break
+
 class ASCIIMathMLPattern(markdown.inlinepatterns.Pattern):
 
     def handleMatch(self, m):
-        mathml = parse(m.group(2).strip())
+        mathml = parse(m.group(3).strip())
         mathml.set('xmlns', 'http://www.w3.org/1998/Math/MathML')
         return mathml
 
