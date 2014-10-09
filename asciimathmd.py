@@ -170,7 +170,8 @@ class EqNumberTreeProcessor(markdown.treeprocessors.Treeprocessor):
                 if mh:
                     mLevel = int(mh.group(1)) - 1
                     self.stepCounter(level=mLevel) 
-                    e.text = self.makeNumber(mLevel) + ' ' + e.text
+                    if self.ext.getConfig('header_num'):
+                        e.text = self.makeNumber(mLevel) + ' ' + e.text
                 
                 # Is an equation
                 if e.tag == 'mtr' and 'class' in e.attrib and e.attrib['class'] == 'equation':
