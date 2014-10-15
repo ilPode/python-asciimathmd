@@ -29,8 +29,7 @@ BLOCK_RE = r'(?:^|\n)\[~(\w*)\]' # [~ref] math
 EQREF_RE = r'\[~(\w+)\]' # blah blah [~ref] blah
 
 LINEBREAK_RE = r'  \n'
-NOBREAK_RE = r'(?!.*' + LINEBREAK_RE + '.*)'
-INLINEMATH_RE = MATH_DEL + NOBREAK_RE + r'(.*?)' + MATH_DEL
+INLINEMATH_RE = MATH_DEL + r'(.*?)' + MATH_DEL
 
 class ASCIIMathMLExtension(markdown.extensions.Extension):
     def __init__(self, configs, **kwargs):
