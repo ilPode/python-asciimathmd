@@ -1,10 +1,6 @@
 ASCIIMathML Markdown
 ====================
 
-Work in progress
------------------
-This is Pre-alpha code. Be careful, it bites. 
-
 Description
 -----------
 Extension for [Python Markdown][python-markdown] wich adds math support in [ASCIIMathML][] syntax. 
@@ -42,9 +38,6 @@ You can set the preferred behaviour using this config parameters:
     * level_num = 6 : Numbers on all headers from h1 to h6 (please don't do this).
 - header_num: Wether or not to show the number near the header (Default is True)
 
-Help
-----
-If you have any ideas for a better syntax let me know.
 
 [ASCIIMathML]: http://www1.chapman.edu/~jipsen/mathml/asciimath.html
 [python-markdown]:https://pypi.python.org/pypi/Markdown
